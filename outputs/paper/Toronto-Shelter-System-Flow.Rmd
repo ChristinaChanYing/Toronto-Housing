@@ -1,0 +1,201 @@
+---
+title: "Examining Toronto's Shelter System Flow during a Pandemic"
+author: 
+  - Christina Chan-Ying
+thanks: "Code and data are available at: https://github.com/ChristinaChanYing/Toronto-Housing"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+abstract: "The City of Toronto operates and funds different services to people experiencing who are homeless in the streets of Toronto. In this paper, we will examine the homeless population of different population groups (i.e., youths, families, etc.) throughout the different months within 2020 to 2021 and how COVID-19 has affected them. The data examined are based on the Daily Shelter Occupancy data set which provides the listing of all the active shelters serving the City of Toronto area. The data shows that there is a   "
+output:
+  bookdown::pdf_document2
+toc: FALSE
+bibliography: references.bib
+nocite: '@*'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(zoo)
+library(kableExtra)
+library(dplyr)
+```
+
+# Introduction
+
+Toronto is Canada's largest city and as such contains the highest homeless population within the country. To aid homeless Torontonians, the city has implemented services such as emergency shelters, respites, and other allied services dedicated to them. These services then use Shelter Management Information System (SMIS) to intake people who are accessing these services into their programs [@torontoshelterdata]. 
+
+Starting from the beginning of 2020, Canada has been impacted by the coronavirus, and Toronto’s homeless population has become one of the virus’ most susceptible victims. Along with having their everyday activities criminalized, now this population also must deal with the increased likelihood to suffer from underlying health conditions and social distancing in an inadequate shelter system [@utsc]. While Toronto has invested in various methods to assist and protect its homeless through vaccinations and has increased focus on infection and prevention control (IPAC) measures in the shelter system [@torontoassist], many say that there still needs to be more action taken to ensure their safety and confront homelessness [@cbcsheltercrumble]. 
+
+# Data
+
+The data in this paper were analyzed through the use of R, a programming language for statistical computing [@citeR], and various R packages for data manipulation. Some of these packages include tidyverse [@tidyverse] and dplyr [@dplyr] for handling the data, ggplot2[@ggplot2] for graphing, knitr[@knitr] and kableExtra[@kableExtra] to construct and style tables, and zoo[@zoo] for working with irregular date times. The opendatatoronto package was used to import the data used in this paper was taken from the Open Data Toronto Portal [@opendatatoronto].
+
+## Data Source
+
+The Toronto Shelter System Flow data contains information about people who are experiencing homelessness and enter and leave the shelter system each month [@torontoshelterdata]. This data also includes the unique case of people who are not considered to be actively homeless but have used the shelter system at least once in the past three months [@torontoshelterdata]. It should be made clear that this data only includes those who have been entered into Toronto’s shelter system and that the data does not reflect all of Toronto’s homeless. It is also assumed based on the most recent Street Needs Assessment that there is roughly 18 percent of people experiencing homelessness in Toronto are not currently reflected in this data [@torontoshelterdata].
+
+## Data Characteristics
+
+Within the data, there are various labels used to separate the homeless population into population groups. Open Data Toronto Portal defines some of these labels as such [@torontoshelterdata]: 
+
+* **All populations:** Refers to total number of individuals represented in the report without any demographic breakdown.
+* **Chronic (refers to chronic homelessness):** People who meet one of the two following criteria, as per the federal definition of chronic homelessness. The person has recorded a minimum of 180 overnight stay in the past year (365 days); or the person has recurrent overnight stays over the past three years with a cumulative duration of at least 546 nights.
+* **Families:** Individuals who are recorded as staying in a family designated overnight service.
+* **Youth:** Refers to unaccompanied youth and includes people who are between 16 and 24 years old by the last date of the reporting month and are not members of a family as defined above.
+* **Single Adult:** Refers to individuals who are neither classified as youth nor are members of a family.
+* **Refugees:** People who either identify as refugees upon intake to a shelter system or whose intake is completed into a program designated for refugees. Applies to all household members as answered by the household head.
+* **Non-Refugees:** People who are not categorized as refugee per the definition above.
+* **Indigenous:** An individual is classified as Indigenous if the person has self-identified as First Nations (status, non-status, treaty, non-treaty), Metis or Inuit in at least one of the intake(s) completed in SMIS (Shelter Management Information System).
+
+The data also includes the number of people who are returning from housing, those that returned to the shelter, newly identified homeless, those that moved to housing, those with no recent shelter use, those actively homeless, the number of people in different age groups (ranging from under 16 to over 65), gender and the population group percentage. 
+
+\newpage
+
+```{r get-data, include = FALSE}
+### Grabbing the data ###
+shelter_flow <- readr::read_csv(here::here("inputs/data/shelter_flow_data.csv")) |>
+   as_tibble() |>
+   select(`date(mmm-yy)`, population_group,	returned_from_housing,	returned_to_shelter,	newly_identified,	moved_to_housing,	no_recent_shelter_use, actively_homeless,	ageunder16,	`age16-24`,	`age25-44`,	`age45-64`,	age65over,	gender_male,	gender_female, `gender_transgender,non-binary_or_two_spirit`, population_group_percentage)
+
+### Getting the average population in 2020 ###
+pop_by_year <- subset(shelter_flow, substr(`date(mmm-yy)`, 5, 6) == "20") %>%
+  group_by(population_group) %>%
+  summarize(pop_2020 = round(mean(ageunder16 + `age16-24` + `age25-44` + `age45-64` + age65over)))
+
+### Getting the average population in 2021 ###
+shelter_2021 <- subset(shelter_flow, substr(`date(mmm-yy)`, 5, 6) == "21") %>%
+  group_by(population_group) %>%
+  summarize(pop_2021 = round(mean(ageunder16 + `age16-24` + `age25-44` + `age45-64` + age65over)))
+
+### Merging the average population in 2020 and 2021 ###
+pop_by_year <-
+  merge(x = pop_by_year, y = shelter_2021, all = TRUE)
+
+```
+
+One crucial piece of data absent from this dataset is the number of each group’s total population throughout the months. To cover up for this absence, the sum of each group’s age group (i.e., age under 16, age 16-24, etc.) was calculated together to get the total population. However, when calculating the sum of the genders (since this is another valid way to get the total populate), it was discovered that it did not match the sum of the age groups as seen in Table \@ref(tab:compare-pop). This most likely means that not every person in the system entered all their personal data, thus causing this difference in number. Since the difference between the age groups and gender is minuscule, using the sum of the age groups as the total population would not make much difference. It, however, should be noted that this number may not be accurate as a result. 
+
+
+Once obtaining the total population, the average population of each group can be compared between the last two years to see how much the pandemic affected it. As seen in Table \@ref(tab:avg-pop), the population of all 7 groups has not changed that much. The average total population has decreased from 8315 to 8298 from 2020 to 2021, and the order of most population to least has stayed the same with non-refugees at the top, and Youths at the bottom (with the exclusion of the Indigenous group that was only added in January 2021). It should be noted that many people fall into multiple categories, thus making non-refugees the largest groups since there is only a small portion of actual refugees.  
+
+\newpage
+
+
+```{r compare-pop, echo = FALSE}
+pop_by_age <- subset(shelter_flow, `date(mmm-yy)` == "Jan-20") %>%
+  group_by(population_group) %>%
+  summarize(pop_age = round(ageunder16 + `age16-24` + `age25-44` + `age45-64` + age65over))
+
+pop_by_gender <- shelter_flow %>%
+  group_by(population_group) %>%
+  summarize(pop_gen = round(mean(gender_male + gender_female + `gender_transgender,non-binary_or_two_spirit`)))
+
+pop_compare <-
+  merge(x = pop_by_age, y = pop_by_gender, all = TRUE)
+
+pop_compare %>%
+  arrange(pop_compare) %>%
+  knitr::kable(caption = "Total Population in January 2020", 
+               col.names = c("Group", "Population from Age", "Population from Gender"),
+               align = c('l', 'l', 'l'),
+               booktabs = T,
+               linesep = "") %>%
+  kable_styling(full_width = T) %>%
+  column_spec(1, width = "7cm")
+
+```
+
+
+```{r avg-pop, fig.cap="Average homeless population of each group per year", echo = FALSE}
+### Displaying the average population in 2020 and 2021 ###
+pop_by_year %>%
+  arrange(desc(pop_2020)) %>%
+  knitr::kable(caption = "Mean Group Population per Year", 
+               col.names = c("Group", "Population 2020", "Population 2021"),
+               align = c('l', 'l', 'l'),
+               booktabs = T,
+               linesep = "") %>%
+  kable_styling(full_width = T) %>%
+  column_spec(1, width = "7cm")
+```  
+
+
+\newpage
+
+```{r pop-month, fig.cap="Homeless population of each group per month", echo = FALSE}
+### Getting total homeless population by month ###
+pop_by_month <- transform(shelter_flow, `date(mmm-yy)` = as.yearmon(`date(mmm-yy)`, "%b-%y")) %>%
+  mutate(population = shelter_flow$ageunder16 + shelter_flow$`age16-24` + shelter_flow$`age25-44` + shelter_flow$`age45-64` + shelter_flow$age65over)
+
+pop_by_month %>%
+  ggplot(aes(x = `date.mmm.yy.`, y = population, colour = population_group, group = population_group)) +
+  geom_point() +
+  geom_line() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs (x = "Date",
+        y = "Population",
+        colour = "Group",
+        title = "Monthly Population Percent")
+```
+
+
+
+```{r new-pop, fig.cap="Newly identified homeless population of each group per month", echo = FALSE}
+pop_by_month %>%
+  ggplot(aes(x = `date.mmm.yy.`, y = newly_identified, colour = population_group, group = population_group)) +
+  geom_point() +
+  geom_line() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs (x = "Date",
+        y = "Newly identified population",
+        colour = "Group",
+        title = "Montly newly identified population")
+```
+
+\newpage
+
+
+```{r recent-pop, echo=FALSE}
+pop_by_month %>%
+  ggplot(aes(x = `date.mmm.yy.`, y = no_recent_shelter_use, colour = population_group, group = population_group)) +
+  geom_point() +
+  geom_line() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs (x = "Date",
+        y = "Population",
+        colour = "Group",
+        title = "Population with no recent shelter usage per month")
+```
+
+
+
+Talk more about it.
+
+<!-- Also bills and their average (Figure \@ref(fig:change)). (Notice how you can change the height and width so they don't take the whole page?) -->
+
+Talk way more about it. 
+
+
+# Results
+
+# Discussion
+
+## First discussion point
+
+If my paper were 10 pages, then should be be at least 2.5 pages. The discussion is a chance to show off what you know and what you learnt from all this. 
+
+## Second discussion point
+
+## Third discussion point
+
+## Weaknesses and next steps
+
+Weaknesses and next steps should also be included.
+
+
+\newpage
+
+
+# References
+
