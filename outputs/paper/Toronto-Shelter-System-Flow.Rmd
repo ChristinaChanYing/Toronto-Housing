@@ -4,9 +4,12 @@ author:
   - Christina Chan-Ying
 thanks: "Code and data are available at: https://github.com/ChristinaChanYing/Toronto-Housing"
 date: "`r format(Sys.time(), '%d %B %Y')`"
-abstract: "The City of Toronto operates and funds different services to people experiencing who are homeless in the streets of Toronto. In this paper, we will examine the homeless population of different population groups (i.e., youths, families, etc.) throughout the different months within 2020 to 2021 and how COVID-19 has affected them. The data examined are based on the Daily Shelter Occupancy data set which provides the listing of all the active shelters serving the City of Toronto area. The data shows that there is a   "
+abstract: "The City of Toronto operates and funds different services to people experiencing who are homeless in the streets of Toronto. In this paper, we will examine the homeless population of different population groups (i.e., youths, families, etc.) throughout the different months within 2020 to 2021 and how COVID-19 has affected them. The data examined are based on the Daily Shelter Occupancy data set which provides the listing of all the active shelters serving the City of Toronto area. The data shows that there is a slight drop in the homeless population, however, as we continue our analysis, we dive into why that may have occurred."
 output:
-  bookdown::pdf_document2
+  bookdown::pdf_document2:
+    fig_caption: yes        
+    includes:  
+      in_header: my_header.tex
 toc: FALSE
 bibliography: references.bib
 nocite: '@*'
@@ -50,8 +53,6 @@ Within the data, there are various labels used to separate the homeless populati
 
 The data also includes the number of people who are returning from housing, those that returned to the shelter, newly identified homeless, those that moved to housing, those with no recent shelter use, those actively homeless, the number of people in different age groups (ranging from under 16 to over 65), gender and the population group percentage. 
 
-\newpage
-
 ```{r get-data, include = FALSE}
 ### Grabbing the data ###
 shelter_flow <- readr::read_csv(here::here("inputs/data/shelter_flow_data.csv")) |>
@@ -74,23 +75,23 @@ pop_by_year <-
 
 ```
 
+
 One crucial piece of data absent from this dataset is the number of each group’s total population throughout the months. To cover up for this absence, the sum of each group’s age group (i.e., age under 16, age 16-24, etc.) was calculated together to get the total population. However, when calculating the sum of the genders (since this is another valid way to get the total populate), it was discovered that it did not match the sum of the age groups as seen in Table \@ref(tab:compare-pop). This most likely means that not every person in the system entered all their personal data, thus causing this difference in number. Since the difference between the age groups and gender is minuscule, using the sum of the age groups as the total population would not make much difference. It, however, should be noted that this number may not be accurate as a result. 
-
-
-Once obtaining the total population, the average population of each group can be compared between the last two years to see how much the pandemic affected it. As seen in Table \@ref(tab:avg-pop), the population of all 7 groups has not changed that much. The average total population has decreased from 8315 to 8298 from 2020 to 2021, and the order of most population to least has stayed the same with non-refugees at the top, and Youths at the bottom (with the exclusion of the Indigenous group that was only added in January 2021). It should be noted that many people fall into multiple categories, thus making non-refugees the largest groups since there is only a small portion of actual refugees.  
 
 \newpage
 
-
 ```{r compare-pop, echo = FALSE}
+### Getting the total population from age ###
 pop_by_age <- subset(shelter_flow, `date(mmm-yy)` == "Jan-20") %>%
   group_by(population_group) %>%
   summarize(pop_age = round(ageunder16 + `age16-24` + `age25-44` + `age45-64` + age65over))
 
+### Getting the total population from gender ###
 pop_by_gender <- shelter_flow %>%
   group_by(population_group) %>%
   summarize(pop_gen = round(mean(gender_male + gender_female + `gender_transgender,non-binary_or_two_spirit`)))
 
+### Combining total age population and total gender population ###
 pop_compare <-
   merge(x = pop_by_age, y = pop_by_gender, all = TRUE)
 
@@ -106,12 +107,13 @@ pop_compare %>%
 
 ```
 
+Once obtaining the total population, the average population of each group can be compared between the last two years to see how much the pandemic affected it. As seen in Table \@ref(tab:avg-pop), the population of all 7 groups has not changed that much. The average total population has decreased from 8315 to 8298 from 2020 to 2021, and the order of most population to least has stayed the same with non-refugees at the top, and Youths at the bottom (with the exclusion of the Indigenous group that was only added in January 2021). It should be noted that many people fall into multiple categories, thus making non-refugees the largest groups since there is only a small portion of actual refugees.  
 
 ```{r avg-pop, fig.cap="Average homeless population of each group per year", echo = FALSE}
 ### Displaying the average population in 2020 and 2021 ###
 pop_by_year %>%
   arrange(desc(pop_2020)) %>%
-  knitr::kable(caption = "Mean Group Population per Year", 
+  knitr::kable(caption = "Average Group Population per Year", 
                col.names = c("Group", "Population 2020", "Population 2021"),
                align = c('l', 'l', 'l'),
                booktabs = T,
@@ -120,8 +122,7 @@ pop_by_year %>%
   column_spec(1, width = "7cm")
 ```  
 
-
-\newpage
+When the total population of each group are displayed in a graph (see Figure \@ref(fig: pop-month), we are able to see that non-refugees, single adults, and all population closely follow each other indicating each group most likely carries the same members. We are also able to see that both families and refugees drop in numbers around April 2020. During this time, it was discovered that there were at least 135 positive COVID19 cases found among Toronto's homeless. These cases were attributed to the shelter and the lack of social distancing put into practice in the city's shelter system. As such, many groups in Toronto file legal action against the city and the homeless are opting to stay outdoors as opposed to the shelters [@cbccovidoutbreaks]. 
 
 ```{r pop-month, fig.cap="Homeless population of each group per month", echo = FALSE}
 ### Getting total homeless population by month ###
@@ -136,36 +137,34 @@ pop_by_month %>%
   labs (x = "Date",
         y = "Population",
         colour = "Group",
-        title = "Monthly Population Percent")
+        title = "Monthly Population")
 ```
 
-
+In Figure \@ref(fig: pop-month), we are also able to see that the number of refugees and families have had the biggest drop out of all the population groups with not much recovery. While a drop in the homeless population may seem like a good thing, we have to keep in mind that this data only reflects the people who have used an overnight service and do not include people exclusively sleeping outdoors or using other homelessness services [@torontoshelterdata]. It also does not include shelter sites that do not use SMIS or are funded by other levels of government [@torontoshelterdata]. Even though this dataset shows a consistent drop through 2020 to 2021, it does not mean that Toronto succeeded in helping these groups of people of out homelessness. As Canada tightened COVID19 restrictions in the spring of 2020, it has also affected the number of people entering the country including refugees. As such, it is very likely that the drop in refugees facing homelessness is due to the fact that there are less refugees entering the country. 
 
 ```{r new-pop, fig.cap="Newly identified homeless population of each group per month", echo = FALSE}
-pop_by_month %>%
-  ggplot(aes(x = `date.mmm.yy.`, y = newly_identified, colour = population_group, group = population_group)) +
-  geom_point() +
-  geom_line() +
-  theme(axis.text.x = element_text(angle = 90)) +
-  labs (x = "Date",
-        y = "Newly identified population",
-        colour = "Group",
-        title = "Montly newly identified population")
+# pop_by_month %>%
+#   ggplot(aes(x = `date.mmm.yy.`, y = newly_identified, colour = population_group, group = population_group)) +
+#   geom_point() +
+#   geom_line() +
+#   theme(axis.text.x = element_text(angle = 90)) +
+#   labs (x = "Date",
+#         y = "Newly identified population",
+#         colour = "Group",
+#         title = "Montly newly identified population")
 ```
 
-\newpage
 
-
-```{r recent-pop, echo=FALSE}
-pop_by_month %>%
-  ggplot(aes(x = `date.mmm.yy.`, y = no_recent_shelter_use, colour = population_group, group = population_group)) +
-  geom_point() +
-  geom_line() +
-  theme(axis.text.x = element_text(angle = 90)) +
-  labs (x = "Date",
-        y = "Population",
-        colour = "Group",
-        title = "Population with no recent shelter usage per month")
+```{r recent-pop, fig.cap="jakdjaldjlkas", echo=FALSE}
+# pop_by_month %>%
+#   ggplot(aes(x = `date.mmm.yy.`, y = no_recent_shelter_use, colour = population_group, group = population_group)) +
+#   geom_point() +
+#   geom_line() +
+#   theme(axis.text.x = element_text(angle = 90)) +
+#   labs (x = "Date",
+#         y = "Population",
+#         colour = "Group",
+#         title = "Population with no recent shelter usage per month")
 ```
 
 
@@ -177,21 +176,16 @@ Talk more about it.
 Talk way more about it. 
 
 
-# Results
+# Results and Discussion
+While the most results from my analysis of the data were not surprising (like the decrease in homeless refugees), there were other unexpected finds. While this does not necessarily relate to the pandemic itself, the dataset’s lack of information on the Indigenous groups was unexpected. Indigenous homelessness has been a large on-going issue within all of Canada for the past few decades. This dataset, however, has only began to include Indigenous people within their data collected in January 2021, after an updated Indigenous identity question became mandatory in Oct 2020 [@torontoshelterdata]. This could point to some bias the country still holds against this population group, and indicates that Toronto does not think of Indigenous homelessness as a major concern when it should be. Additionally, since this dataset only includes the data from people who have use the overnight shelter service that are funded by the municipal level of government. As such, there is a large portion of people who are faced with homelessness that are excluded from this dataset. 
 
-# Discussion
+All the exclusions of different populations groups along with various other circumstances (i.e.  the weather, vaccines, social distancing, etc.) have led to a lower homeless population in this dataset. 
 
-## First discussion point
 
-If my paper were 10 pages, then should be be at least 2.5 pages. The discussion is a chance to show off what you know and what you learnt from all this. 
+# Conclusion
+Toronto still has a long way to go before the city can solve its homeless problem. COVID19 has especially shown how much more attention the city needs to give to the homeless community. The homeless have now become what some refer to as the invisible victims of COVID19. 
+There needs to be more data on how covid has affected Toronto’s homeless in order for the city to help them. Breakouts in the shelter have forced the homeless to with the decision to either sleep on the streets in the cold, or to risk becoming infected with Covid-19 and stay in violent areas. If the city truly wants to aid the homeless and keep them safe, the city needs to shift their focus to support affordable housing, support services and prevention through voting, public funding and remain impartial and objective [@theconversation]. 
 
-## Second discussion point
-
-## Third discussion point
-
-## Weaknesses and next steps
-
-Weaknesses and next steps should also be included.
 
 
 \newpage
